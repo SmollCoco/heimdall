@@ -1,0 +1,43 @@
+Heimdall Personal Use License
+
+Copyright (c) 2025 SmollCoco
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, and modify the Software solely for personal, non-commercial purposes,
+subject to the following conditions:
+
+PERMITTED USES:
+1. Personal use and experimentation with the Software
+2. Modification of the Software for personal use only
+3. Studying the source code for educational purposes
+4. Contributing improvements to the original repository via pull requests
+
+PROHIBITED USES:
+1. Commercial use of any kind (including internal business use)
+2. Public redistribution of the Software in original or modified form
+3. Publishing modified versions under any name
+4. Incorporating this code into commercial or open-source projects
+5. Offering the Software as a service (SaaS)
+
+CONTRIBUTIONS:
+- Pull requests to the original repository are welcome and encouraged
+- By submitting a pull request, you agree to license your contribution 
+  under the same terms as this license
+- Contributors retain copyright to their contributions
+
+DISCLAIMER:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+ENFORCEMENT:
+Violation of these terms automatically terminates your license to use the
+Software. The copyright holder reserves the right to take legal action
+against violators.
+
+For commercial licensing inquiries, contact: SmollCoco on GitHub
