@@ -1,0 +1,31 @@
+# Example Heimdall Configuration
+
+# Input sources to monitor
+inputs:
+    - path: /var/log/
+      path_type: directory
+      labels:
+          service: system
+          environment: production
+
+# Output configuration
+output:
+    loki:
+        url: http://localhost:3100
+        batch_size: 100
+        batch_timeout: 5s
+
+# Performance tuning
+worker_pool_size: 4
+channel_buffer_size: 1000
+
+# Retry configuration
+retry:
+    max_attempts: 5
+    initial_backoff: 1s
+    max_backoff: 30s
+
+# Self-monitoring
+self_monitoring:
+    enabled: true
+    interval: 30s
