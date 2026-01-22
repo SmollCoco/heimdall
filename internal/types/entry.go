@@ -36,5 +36,6 @@ func NewLogEntry(line []byte, source string, labels map[string]string) *LogEntry
 // generateStreamID creates a unique identifier for the log stream
 // Format: "{source}:{label1=value1,label2=value2}"
 func generateStreamID(source string, labels map[string]string) string {
+	// Just return source for now
 	return source
 }
