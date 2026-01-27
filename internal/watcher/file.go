@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/SmollCoco/heimdall/internal/config"
 	"github.com/SmollCoco/heimdall/internal/types"
@@ -15,27 +16,32 @@ import (
 
 // watchFile monitors a single file for changes
 func watchFile(ctx context.Context, watcher *fsnotify.Watcher, input config.InputSource, output chan<- *types.LogEntry) error {
-	// Open the file
-	file, err := os.Open(input.Path)
+	absPath, err := filepath.Abs(input.Path)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", input.Path, err)
+		return fmt.Errorf("failed to resolve absolute path for %s: %w", input.Path, err)
+	}
+
+	// Open the file
+	file, err := os.Open(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s: %w", absPath, err)
 	}
 	defer file.Close()
 
 	// Seek to end (we don't want to read existing logs on startup)
 	_, err = file.Seek(0, io.SeekEnd)
 	if err != nil {
-		return fmt.Errorf("failed to seek to end of file %s: %w", input.Path, err)
+		return fmt.Errorf("failed to seek to end of file %s: %w", absPath, err)
 	}
 
 	// Add file to fsnotify watcher
-	err = watcher.Add(input.Path)
+	err = watcher.Add(absPath)
 	if err != nil {
-		return fmt.Errorf("failed to add file %s to watcher: %w", input.Path, err)
+		return fmt.Errorf("failed to add file %s to watcher: %w", absPath, err)
 	}
-	defer watcher.Remove(input.Path)
+	defer watcher.Remove(absPath)
 
-	log.Printf("Started watching file: %s", input.Path)
+	log.Printf("Started watching file: %s", absPath)
 
 	// Event loop
 	for {
@@ -46,15 +52,16 @@ func watchFile(ctx context.Context, watcher *fsnotify.Watcher, input config.Inpu
 			}
 
 			// Only process events for our file (fsnotify might send events for other files)
-			if event.Name != input.Path {
+			if event.Name != absPath {
 				continue
 			}
 
 			switch {
 			case event.Op&fsnotify.Write == fsnotify.Write:
 				// File was modified, read new lines
-				if err := readNewLines(file, input.Path, input.Labels, output); err != nil {
-					log.Printf("Error reading from %s: %v", input.Path, err)
+				log.Printf("DEBUG [watchFile]: Write event for %s", absPath)
+				if err := readNewLines(file, absPath, input.Labels, output); err != nil {
+					log.Printf("Error reading from %s: %v", absPath, err)
 				}
 
 			case event.Op&fsnotify.Remove == fsnotify.Remove:
@@ -74,10 +81,10 @@ func watchFile(ctx context.Context, watcher *fsnotify.Watcher, input config.Inpu
 			if !ok {
 				return nil
 			}
-			log.Printf("Watcher error for file %s: %v", input.Path, err)
+			log.Printf("Watcher error for file %s: %v", absPath, err)
 
 		case <-ctx.Done():
-			log.Printf("Context cancelled, stopping watcher for %s", input.Path)
+			log.Printf("Context cancelled, stopping watcher for %s", absPath)
 			return nil
 		}
 	}
@@ -85,6 +92,7 @@ func watchFile(ctx context.Context, watcher *fsnotify.Watcher, input config.Inpu
 
 // readNewLines reads new lines from the file and sends them to the channel
 func readNewLines(file *os.File, source string, labels map[string]string, output chan<- *types.LogEntry) error {
+	log.Printf("DEBUG [readNewLines]: source=%s labels=%+v", source, labels)
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -98,6 +106,7 @@ func readNewLines(file *os.File, source string, labels map[string]string, output
 		// Create LogEntry (scanner.Bytes() is a shared buffer, so we need to copy)
 		lineCopy := make([]byte, len(line))
 		copy(lineCopy, line)
+		log.Printf("DEBUG [readNewLines]: line=%s", string(lineCopy))
 
 		entry := types.NewLogEntry(lineCopy, source, labels)
 

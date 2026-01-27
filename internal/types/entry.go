@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 // LogEntry represents a single log line with metadata
 type LogEntry struct {
@@ -19,18 +22,26 @@ type LogEntry struct {
 
 // NewLogEntry creates a LogEntry with timestamp set to now
 func NewLogEntry(line []byte, source string, labels map[string]string) *LogEntry {
+	log.Printf("DEBUG [NewLogEntry]: Received labels: %+v", labels)
+
 	labelCopy := make(map[string]string, len(labels))
-	for k, v := range labels {
-		labelCopy[k] = v
+	if labels != nil {
+		for k, v := range labels {
+			labelCopy[k] = v
+		}
 	}
 
-	return &LogEntry{
+	entry := &LogEntry{
 		Line:      line,
 		Timestamp: time.Now(),
 		Source:    source,
 		Labels:    labelCopy,
-		StreamID:  generateStreamID(source, labels),
+		StreamID:  generateStreamID(source, labelCopy),
 	}
+
+	log.Printf("DEBUG [NewLogEntry]: Created entry with labels: %+v", entry.Labels)
+
+	return entry
 }
 
 // generateStreamID creates a unique identifier for the log stream

@@ -43,7 +43,11 @@ func processWorker(ctx context.Context, workerID int, input <-chan *types.LogEnt
 
 // processEntry transforms a LogEntry into a ProcessedEntry
 func processEntry(entry *types.LogEntry) *types.ProcessedEntry {
+	log.Printf("DEBUG [processEntry]: Input LogEntry labels: %+v", entry.Labels)
+
 	processed := types.NewProcessedEntry(entry)
+
+	log.Printf("DEBUG [processEntry]: ProcessedEntry labels after creation: %+v", processed.Labels)
 
 	// Detect log level
 	level := detectLogLevel(entry.Line)

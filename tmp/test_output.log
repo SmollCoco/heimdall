@@ -1,0 +1,23 @@
+2026/01/23 16:40:56 === Heimdall End-to-End Pipeline Test ===
+2026/01/23 16:40:56 Created test file: ./tmp/heimdall_e2e_test/app.log
+2026/01/23 16:40:56 Starting processor with 2 workers
+2026/01/23 16:40:56 Starting shipper (batch_size=10, batch_timeout=2s)
+2026/01/23 16:40:56 Started watching file: ./tmp/heimdall_e2e_test/app.log
+2026/01/23 16:40:56 Processor worker 1 started
+2026/01/23 16:40:56 Processor worker 0 started
+2026/01/23 16:40:57 
+--- Writing test logs to file ---
+2026/01/23 16:40:57 Wrote: INFO: Application started successfully
+2026/01/23 16:40:57 Wrote: DEBUG: Loading configuration
+2026/01/23 16:40:58 Wrote: WARN: Connection pool running low
+2026/01/23 16:40:58 Wrote: ERROR: Failed to connect to database
+2026/01/23 16:40:59 Wrote: FATAL: Out of memory
+2026/01/23 16:40:59 Wrote: Regular log without level
+2026/01/23 16:41:00 
+--- Waiting for pipeline to process logs ---
+2026/01/23 16:41:05 
+=== Test Complete! ===
+2026/01/23 16:41:05 Check Grafana: http://localhost:3000
+2026/01/23 16:41:05 Query: {service="e2e-test"}
+2026/01/23 16:41:05 
+Press Ctrl+C to exit

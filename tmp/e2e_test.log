@@ -1,0 +1,31 @@
+2026/01/23 16:35:23 === Heimdall End-to-End Pipeline Test ===
+2026/01/23 16:35:23 Created test file: ./tmp/heimdall_e2e_test/app.log
+2026/01/23 16:35:23 Starting shipper (batch_size=10, batch_timeout=2s)
+2026/01/23 16:35:23 Starting processor with 2 workers
+2026/01/23 16:35:23 Started watching file: ./tmp/heimdall_e2e_test/app.log
+2026/01/23 16:35:23 Processor worker 0 started
+2026/01/23 16:35:23 Processor worker 1 started
+2026/01/23 16:35:24 
+--- Writing test logs to file ---
+2026/01/23 16:35:24 Wrote: INFO: Application started successfully
+2026/01/23 16:35:25 Wrote: DEBUG: Loading configuration
+2026/01/23 16:35:25 Wrote: WARN: Connection pool running low
+2026/01/23 16:35:26 Wrote: ERROR: Failed to connect to database
+2026/01/23 16:35:26 Wrote: FATAL: Out of memory
+2026/01/23 16:35:27 Wrote: Regular log without level
+2026/01/23 16:35:27 
+--- Waiting for pipeline to process logs ---
+2026/01/23 16:35:32 
+=== Test Complete! ===
+2026/01/23 16:35:32 Check Grafana: http://localhost:3000
+2026/01/23 16:35:32 Query: {service="e2e-test"}
+2026/01/23 16:35:32 
+Press Ctrl+C to exit
+2026/01/23 16:35:38 
+Shutting down...
+2026/01/23 16:35:38 Processor worker 0: context cancelled
+2026/01/23 16:35:38 Processor worker 1: context cancelled
+2026/01/23 16:35:38 Context cancelled, stopping watcher for ./tmp/heimdall_e2e_test/app.log
+2026/01/23 16:35:38 All processor workers stopped
+2026/01/23 16:35:38 Shipper context cancelled, exiting
+2026/01/23 16:35:38 Shipper error: context canceled
