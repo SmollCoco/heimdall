@@ -8,17 +8,29 @@ import (
 	"github.com/SmollCoco/heimdall/internal/types"
 )
 
+// Pusher defines the interface for pushing logs to Loki
+type Pusher interface {
+	Push(ctx context.Context, request *LokiPushRequest) error
+}
+
 // Shipper batches and sends ProcessedEntries to Loki
 type Shipper struct {
-	client       *LokiClient
+	client       Pusher
 	batchSize    int
 	batchTimeout time.Duration
 }
 
-// NewShipper creates a new Shipper
 func NewShipper(lokiURL string, batchSize int, batchTimeout time.Duration, maxRetries int, initialBackoff, maxBackoff time.Duration) *Shipper {
 	return &Shipper{
-		client:       NewLokiClient(lokiURL, maxRetries, initialBackoff, maxBackoff),
+		client:       NewLokiClient(lokiURL, maxRetries, initialBackoff, maxBackoff), // *LokiClient implements Push
+		batchSize:    batchSize,
+		batchTimeout: batchTimeout,
+	}
+}
+
+func NewShipperWithClient(client Pusher, batchSize int, batchTimeout time.Duration) *Shipper {
+	return &Shipper{
+		client:       client,
 		batchSize:    batchSize,
 		batchTimeout: batchTimeout,
 	}
@@ -67,7 +79,7 @@ func (s *Shipper) Start(ctx context.Context, input <-chan *types.ProcessedEntry)
 				s.sendBatch(ctx, batch)
 			}
 			log.Println("Shipper context cancelled, exiting")
-			return ctx.Err()
+			return nil
 		}
 	}
 }

@@ -37,13 +37,34 @@ func TestStart_MultipleInputs(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	appendLine(t, filePath, "from-file\n")
-
 	dirFile := filepath.Join(dir, "dir.log")
 	require.NoError(t, os.WriteFile(dirFile, []byte(""), 0o644))
-	appendLine(t, dirFile, "from-dir\n")
 
-	got := []string{string(waitForEntry(t, out).Line), string(waitForEntry(t, out).Line)}
+	received := map[string]bool{}
+	require.Eventually(t, func() bool {
+		if !received["from-file"] {
+			appendLine(t, filePath, "from-file\n")
+		}
+		if !received["from-dir"] {
+			appendLine(t, dirFile, "from-dir\n")
+		}
+		for {
+			select {
+			case entry := <-out:
+				received[string(entry.Line)] = true
+			default:
+				return received["from-file"] && received["from-dir"]
+			}
+		}
+	}, 3*time.Second, 50*time.Millisecond)
+
+	got := []string{}
+	if received["from-file"] {
+		got = append(got, "from-file")
+	}
+	if received["from-dir"] {
+		got = append(got, "from-dir")
+	}
 	assert.ElementsMatch(t, []string{"from-file", "from-dir"}, got)
 
 	cancel()

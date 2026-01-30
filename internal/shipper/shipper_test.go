@@ -463,8 +463,158 @@ func TestShipper_E2E_RealLoki(t *testing.T) {
 	}
 }
 
-func TestShipper_Batching(t *testing.T) {
-	t.Skip("batcher not implemented")
+// fake pusher for shipper tests
+type fakePusher struct {
+	calls chan int // sends "how many values were pushed" each time
+}
+
+func newFakePusher(buf int) *fakePusher {
+	return &fakePusher{calls: make(chan int, buf)}
+}
+
+func (f *fakePusher) Push(ctx context.Context, req *LokiPushRequest) error {
+	total := 0
+	for _, s := range req.Streams {
+		total += len(s.Values)
+	}
+	f.calls <- total
+	return nil
+}
+
+func TestShipper_BatchingBySize(t *testing.T) {
+	t.Parallel()
+
+	fp := newFakePusher(10)
+	s := NewShipperWithClient(fp, 3, 1*time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	in := make(chan *types.ProcessedEntry, 10)
+
+	done := make(chan error, 1)
+	go func() { done <- s.Start(ctx, in) }()
+
+	// send 3 entries (same labels)
+	labels := map[string]string{"service": "batch"}
+	entries := createTestProcessedEntries(3, labels, types.LogLevelInfo)
+	for _, e := range entries {
+		in <- e
+	}
+
+	// wait for exactly one push of 3
+	select {
+	case got := <-fp.calls:
+		require.Equal(t, 3, got)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected push did not happen")
+	}
+
+	// stop shipper cleanly
+	cancel()
+	close(in)
+	require.NoError(t, <-done)
+}
+
+func TestShipper_BatchingByTimeout(t *testing.T) {
+	t.Parallel()
+
+	fp := newFakePusher(10)
+	s := NewShipperWithClient(fp, 100, 50*time.Millisecond)
+
+	ctx := context.Background()
+	in := make(chan *types.ProcessedEntry)
+
+	done := make(chan error, 1)
+	go func() { done <- s.Start(ctx, in) }()
+
+	labels := map[string]string{"service": "batch"}
+	entries := createTestProcessedEntries(5, labels, types.LogLevelInfo)
+	for _, e := range entries {
+		in <- e
+	}
+
+	// expect one push of 5 (timeout flush)
+	select {
+	case got := <-fp.calls:
+		require.Equal(t, 5, got)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected push did not happen")
+	}
+
+	// ensure no second push (optional strictness)
+	select {
+	case extra := <-fp.calls:
+		t.Fatalf("unexpected extra push: %d", extra)
+	case <-time.After(100 * time.Millisecond):
+		// ok
+	}
+
+	close(in)
+
+	// wait for shipper to exit
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("shipper did not exit")
+	}
+}
+
+
+func TestShipper_BatchingAfterShutdown(t *testing.T) {
+	t.Parallel()
+
+	fp := newFakePusher(10)
+
+	// Make size/timeout NOT trigger; we want flush ONLY on shutdown.
+	s := NewShipperWithClient(fp, 10, 1*time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Unbuffered channel so sends only complete when shipper receives them.
+	in := make(chan *types.ProcessedEntry)
+
+	done := make(chan error, 1)
+	go func() { done <- s.Start(ctx, in) }()
+
+	// Send 4 entries (same labels)
+	labels := map[string]string{"service": "shutdown"}
+	entries := createTestProcessedEntries(4, labels, types.LogLevelInfo)
+
+	for _, e := range entries {
+		in <- e
+	}
+
+	// Now trigger shutdown flush
+	cancel()
+
+	// Expect one push of 4
+	select {
+	case got := <-fp.calls:
+		require.Equal(t, 4, got)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected push did not happen")
+	}
+
+	// Stop shipper goroutine cleanly
+	close(in)
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("shipper did not exit")
+	}
+
+	// Ensure no extra pushes
+	select {
+	case extra := <-fp.calls:
+		t.Fatalf("unexpected extra push: %d", extra)
+	case <-time.After(100 * time.Millisecond):
+		// ok
+	}
 }
 
 func BenchmarkFormatLokiRequest(b *testing.B) {

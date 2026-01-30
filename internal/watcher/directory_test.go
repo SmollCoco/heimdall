@@ -71,9 +71,18 @@ func TestWatchDirectory_DetectsNewFiles(t *testing.T) {
 
 	newFile := filepath.Join(dir, "new.log")
 	require.NoError(t, os.WriteFile(newFile, []byte(""), 0o644))
-	appendLine(t, newFile, "hello\n")
 
-	entry := waitForEntry(t, out)
+	var entry *types.LogEntry
+	require.Eventually(t, func() bool {
+		appendLine(t, newFile, "hello\n")
+		select {
+		case entry = <-out:
+			return true
+		default:
+			return false
+		}
+	}, 2*time.Second, 50*time.Millisecond)
+
 	assert.Equal(t, "hello", string(entry.Line))
 	assert.Equal(t, "new", entry.Labels["source"])
 

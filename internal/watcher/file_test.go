@@ -71,12 +71,15 @@ func TestWatchFile_HandlesDeletion(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	require.NoError(t, os.Remove(logPath))
 
-	select {
-	case err := <-errCh:
-		assert.NoError(t, err)
-	case <-time.After(2 * time.Second):
-		t.Fatal("watchFile did not stop after deletion")
-	}
+	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			assert.NoError(t, err)
+			return true
+		default:
+			return false
+		}
+	}, 2*time.Second, 50*time.Millisecond)
 }
 
 func TestWatchFile_HandlesRename(t *testing.T) {
