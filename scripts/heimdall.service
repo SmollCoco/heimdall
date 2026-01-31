@@ -1,8 +1,3 @@
-[Unit]
-Description=Heimdall Telemetry Agent
-After=network-online.target
-Wants=network-online.target
-
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/heimdall -config /etc/heimdall/config.yaml
@@ -13,12 +8,10 @@ Group=root
 WorkingDirectory=/
 Environment=GOMAXPROCS=2
 
-# Hardening (safe defaults)
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/log /tmp
 
-[Install]
-WantedBy=multi-user.target
+# allow reading/writing + fsnotify watching here
+ReadWritePaths=/var/log/heimdall
