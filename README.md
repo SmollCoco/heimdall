@@ -1,165 +1,183 @@
 # Heimdall 🛡️
-*Distributed Telemetry Agent for Linux*
 
-[badges will go here later: build status, Go version, license]
+Distributed telemetry agent for Linux (Promtail-style): watch log files/directories → parse → label → batch → ship to Grafana Loki.
 
-## Table of Contents
-- [About](#about)
-- [Why Heimdall?](#why-heimdall)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Development Roadmap](#development-roadmap)
-- [Contributing](#contributing)
+## Features (v1.0.0)
 
----
-
-## About
-**Heimdall** is a distributed telemetry agent. It manages the logging of input directories and their processing into Grafana Loki with the ability to query those logs. It's built using Go with use of concurrency (Goroutines).
-
----
-
-## Why Heimdall?
-This project was built to master Go concurrency patterns, Linux systems programming, and distributed telemetry. 
-After doing some research, I learned that there are no lightweight, low-setup tools that allow for directory logging. Existing tools like Protail and Fluent Bit are resource-heavy and quite complex. My intention with this project is to develop a lightweight, zero-dependency alternative.
-
----
+- Watches **files** and **directories** (auto-discovers new files)
+- Streams new log lines (tail-from-end semantics)
+- Detects basic log levels: `DEBUG/INFO/WARN/ERROR/FATAL`
+- Ships to **Grafana Loki** with:
+    - batching (size OR timeout)
+    - exponential backoff retries
+- Two binaries:
+    - `heimdall` (daemon)
+    - `heimdall-cli` (helper: validate config, sample config, version)
 
 ## Architecture
 
-**High-Level Flow:**
-```
-[Log Files] → [Watcher] → [Processor] → [Shipper] → [Grafana Loki]
-                  ↓            ↓            ↓
-              fsnotify     Transform    Retry Logic
 ```
 
-**Concurrency Model:**
-Heimdall uses a pipeline where:
-- **Watcher goroutines** detect file changes (using `fsnotify`) and send raw data into a buffered channel.
-- A **processor worker pool** reads from said channel, transforms the data, and forwards to the shipper channel.
-- **Shipper goroutines** batch and send entries to Loki with exponential backoff.
+[Log Files] -> [Watcher] -> [Processor (worker pool)] -> [Shipper] -> [Loki]
+fsnotify        parse + labels          batch + retry
 
-Components communicate through typed channels, not direct imports, ensuring loose coupling and independence.
-
----
-
-## Tech Stack
-
-**Language:** Go 1.24.9
-
-**Core Dependencies:**
-- `fsnotify` - File system event monitoring
-- Standard library for everything else
-
-**Infrastructure:**
-- Grafana Loki (Docker)
-- Grafana (Docker)
-
-**Deployment:**
-- Systemd (daemon mode)
-- Standalone binary
-
----
-
-## Project Structure
-```
-heimdall/
-├── cmd/
-│   ├── heimdall/
-│   │   └── main.go
-│   └── heimdall-cli/
-│       └── main.go
-├── internal/
-│   ├── watcher/
-│   ├── processor/
-│   ├── shipper/
-│   ├── config/
-│   ├── setup/
-│   ├── monitor/
-│   └── types/
-├── web/
-│   └── templates/
-├── configs/
-│   └── heimdall.example.yaml
-├── scripts/
-│   └── heimdall.service
-├── go.mod
-└── README.md
 ```
 
-**Package Responsibilities:**
-- `cmd/heimdall`: Main orchestrator. To be used by the daemon.
-- `cmd/heimdall-cli`: Main orchestrator with ability to query the Loki database directly from the terminal.
-- `internal/watcher`: Uses `fsnotify`. Responsable of detecting the changes in the files and the directories.
-- `internal/processor`: The transformar: parses raw bytes into structured JSON blocks.
-- `internal/shipper`: Ships the JSON into Grafana Loki.
-- `internal/monitor`: Used to monitor the activity of the tool (CPU, RAM).
-- `internal/config`: Loads the config file.
-- `internal/setup`: Responsible of the initial setup of the tool.
-- `internal/types`: Shared imported types.
-- `scripts/heimdall.service`: The Systemd unit file.
-- `web/templates`: Web front-end.
+## Requirements
 
----
+- Linux
+- Go (whatever is in `go.mod`)
+- Docker (for Loki + Grafana in local dev)
 
-## Getting Started
+## Quickstart (local Loki + Grafana)
 
-### Prerequisites
-- Go 1.24.9+
-- Docker
-- Linux (developed on Kali, tested on Kali and Ubuntu/Debian)
+1. Start Loki + Grafana:
 
-### Installation
 ```bash
-# [YOUR TASK: Fill in later when we have build commands]
+docker compose up -d
 ```
 
-### Running Heimdall
+2. Build binaries:
+
 ```bash
-# [YOUR TASK: Placeholder for now]
+make build-all VERSION=v1.0.0
 ```
 
----
+3. Use the example config:
 
-## Development Roadmap
+```bash
+./bin/heimdall-cli validate -config ./configs/heimdall.example.yaml
+```
 
-### Phase 1: Foundation ✅ (In Progress)
-- [x] Project structure
-- [ ] Configuration loading (YAML)
-- [ ] Basic file watcher (single file)
-- [ ] Log entry parsing (JSON lines)
+4. Run Heimdall:
 
-### Phase 2: Core Features
-- [ ] Directory watching with fsnotify
-- [ ] Log rotation handling
-- [ ] Loki shipper with retry logic
-- [ ] Worker pool for processing
+```bash
+./bin/heimdall -config ./configs/heimdall.example.yaml
+```
 
-### Phase 3: Resilience
-- [ ] Exponential backoff
-- [ ] Self-monitoring (CPU/RAM)
-- [ ] Journald integration
+5. Grafana:
 
-### Phase 4: UX
-- [ ] Setup mode web GUI
-- [ ] CLI query tool
-- [ ] Systemd service
+- Open: [http://localhost:3000](http://localhost:3000)
+- Query example:
 
-### Phase 5: Production
-- [ ] Performance testing
-- [ ] Documentation
-- [ ] Release builds
+```text
+{service="system"}
+```
 
----
+## Configuration
 
-## Contributing
-This is a learning project. Feedback and suggestions are welcome via issues!
+Example (`configs/heimdall.example.yaml`):
 
----
+```yaml
+inputs:
+    - path: /var/log/
+      path_type: directory
+      labels:
+          service: system
+          environment: production
+
+output:
+    loki:
+        url: http://localhost:3100
+        batch_size: 100
+        batch_timeout: 5s
+
+worker_pool_size: 4
+channel_buffer_size: 1000
+
+retry:
+    max_attempts: 5
+    initial_backoff: 1s
+    max_backoff: 30s
+
+self_monitoring:
+    enabled: false
+    interval: 30s
+```
+
+### Notes
+
+- `batch_size` is number of entries.
+- `batch_timeout` is a Go duration string (`5s`, `200ms`, `1m`).
+- Watcher uses tail-from-end behavior (it does not replay existing file contents on startup).
+
+## Commands
+
+### Daemon (`heimdall`)
+
+```bash
+./bin/heimdall -config /etc/heimdall/config.yaml
+./bin/heimdall -version
+```
+
+Exit codes:
+
+- `0`: clean shutdown (SIGINT/SIGTERM)
+- `1`: runtime error
+- `2`: config/flag error
+
+### Helper CLI (`heimdall-cli`)
+
+```bash
+./bin/heimdall-cli help
+./bin/heimdall-cli version
+./bin/heimdall-cli sample-config
+./bin/heimdall-cli validate -config ./configs/heimdall.example.yaml
+```
+
+## Running as a systemd service
+
+A unit file exists at:
+
+```text
+scripts/heimdall.service
+```
+
+Typical flow:
+
+- Copy config to `/etc/heimdall/config.yaml`
+- Install unit
+- Enable + start service
+
+(Exact commands depend on your distro and install layout.)
+
+## Development
+
+### Run all tests
+
+```bash
+go test ./...
+go test ./... -race
+```
+
+### End-to-End test (requires Loki running)
+
+```bash
+go test ./cmd/heimdall -run TestHeimdall_E2E_Pipeline_ToLoki -v
+```
+
+### Build
+
+```bash
+make build-all VERSION=v1.0.0
+```
+
+## Troubleshooting
+
+### “Logs shipped but Loki query returns nothing”
+
+Use a range query in Grafana or wait a few seconds. Loki queries are time-based.
+
+### “My Loki data disappears when I restart containers”
+
+If you run `docker compose down -v`, volumes are deleted. Avoid `-v` if you want persistence.
+
+### “validate fails because paths don’t exist”
+
+`heimdall-cli validate` checks paths with `os.Stat`. Validate on the target machine or adjust paths.
 
 ## License
-Personal Use License - See [LICENSE](LICENSE) for details.
 
-**TL;DR:** Free for personal use and modification. Commercial use and redistribution prohibited.
+Personal Use License - See `LICENSE`.
+
+TL;DR: Free for personal use and modification. Commercial use and redistribution prohibited.
